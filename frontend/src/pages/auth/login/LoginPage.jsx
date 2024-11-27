@@ -1,108 +1,105 @@
-// Import React's `useState` hook to manage component state
 import { useState } from "react";
-// Import `Link` component from `react-router-dom` for page navigation without reloading
 import { Link } from "react-router-dom";
 
-// Import a custom SVG logo component
 import XSvg from "../../../components/svgs/X";
 
-// Import icons from the `react-icons` library
-import { MdOutlineMail } from "react-icons/md"; // Icon for email/username input
-import { MdPassword } from "react-icons/md"; // Icon for password input
+import { MdOutlineMail } from "react-icons/md";
+import { MdPassword } from "react-icons/md";
 
-// Define the `LoginPage` component
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+
 const LoginPage = () => {
-  // State to store the form data (username and password)
-  const [formData, setFormData] = useState({
-    username: "", // Initial value for the username field is an empty string
-    password: "", // Initial value for the password field is an empty string
-  });
+	const [formData, setFormData] = useState({
+		username: "",
+		password: "",
+	});
+	const queryClient = useQueryClient();
 
-  // Function to handle form submission
-  const handleSubmit = (e) => {
-    e.preventDefault(); // Prevents the default form submission behavior (e.g., page reload)
-    console.log(formData); // Logs the current state of the form data to the console
-  };
+	const {
+		mutate: loginMutation,
+		isPending,
+		isError,
+		error,
+	} = useMutation({
+		mutationFn: async ({ username, password }) => {
+			try {
+				const res = await fetch("/api/auth/login", {
+					method: "POST",
+					headers: {
+						"Content-Type": "application/json",
+					},
+					body: JSON.stringify({ username, password }),
+				});
 
-  // Function to handle input changes and update the state
-  const handleInputChange = (e) => {
-    // Update the corresponding field in `formData` based on the input's `name` attribute
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
+				const data = await res.json();
 
-  // Placeholder variable for error handling
-  const isError = false; // Can be set to `true` to display an error message
+				if (!res.ok) {
+					throw new Error(data.error || "Something went wrong");
+				}
+			} catch (error) {
+				throw new Error(error);
+			}
+		},
+		onSuccess: () => {
+			// refetch the authUser
+			queryClient.invalidateQueries({ queryKey: ["authUser"] });
+		},
+	});
 
-  // JSX for rendering the login page
-  return (
-    <div className="max-w-screen-xl mx-auto flex h-screen">
-      {/* Left section: Visible only on large screens */}
-      <div className="flex-1 hidden lg:flex items-center justify-center">
-        {/* Displays a custom SVG logo */}
-        <XSvg className="lg:w-2/3 fill-white" />
-      </div>
+	const handleSubmit = (e) => {
+		e.preventDefault();
+		loginMutation(formData);
+	};
 
-      {/* Right section: Contains the login form */}
-      <div className="flex-1 flex flex-col justify-center items-center">
-        {/* Login form */}
-        <form className="flex gap-4 flex-col" onSubmit={handleSubmit}>
-          {/* Mobile-friendly SVG logo (hidden on large screens) */}
-          <XSvg className="w-24 lg:hidden fill-white" />
+	const handleInputChange = (e) => {
+		setFormData({ ...formData, [e.target.name]: e.target.value });
+	};
 
-          {/* Page title */}
-          <h1 className="text-4xl font-extrabold text-white">{"Let's"} go.</h1>
+	return (
+		<div className='max-w-screen-xl mx-auto flex h-screen'>
+			<div className='flex-1 hidden lg:flex items-center  justify-center'>
+				<XSvg className='lg:w-2/3 fill-white' />
+			</div>
+			<div className='flex-1 flex flex-col justify-center items-center'>
+				<form className='flex gap-4 flex-col' onSubmit={handleSubmit}>
+					<XSvg className='w-24 lg:hidden fill-white' />
+					<h1 className='text-4xl font-extrabold text-white'>{"Let's"} go.</h1>
+					<label className='input input-bordered rounded flex items-center gap-2'>
+						<MdOutlineMail />
+						<input
+							type='text'
+							className='grow'
+							placeholder='username'
+							name='username'
+							onChange={handleInputChange}
+							value={formData.username}
+						/>
+					</label>
 
-          {/* Username input field */}
-          <label className="input input-bordered rounded flex items-center gap-2">
-            <MdOutlineMail /> {/* Username icon */}
-            <input
-              type="text"
-              className="grow" // Makes the input field expand to fill available space
-              placeholder="username" // Placeholder text for the input
-              name="username" // Used to identify this input field in state updates
-              onChange={handleInputChange} // Updates state when the value changes
-              value={formData.username} // Sets the input value from the state
-            />
-          </label>
-
-          {/* Password input field */}
-          <label className="input input-bordered rounded flex items-center gap-2">
-            <MdPassword /> {/* Password icon */}
-            <input
-              type="password"
-              className="grow"
-              placeholder="Password"
-              name="password"
-              onChange={handleInputChange}
-              value={formData.password}
-            />
-          </label>
-
-          {/* Login button */}
-          <button className="btn rounded-full btn-primary text-white">
-            Login
-          </button>
-
-          {/* Error message (conditionally displayed) */}
-          {isError && <p className="text-red-500">Something went wrong</p>}
-        </form>
-
-        {/* Section for navigation to the signup page */}
-        <div className="flex flex-col gap-2 mt-4">
-          {/* Text prompting the user to create an account */}
-          <p className="text-white text-lg">{"Don't"} have an account?</p>
-
-          {/* Link to the signup page */}
-          <Link to="/signup">
-            <button className="btn rounded-full btn-primary text-white btn-outline w-full">
-              Sign up
-            </button>
-          </Link>
-        </div>
-      </div>
-    </div>
-  );
+					<label className='input input-bordered rounded flex items-center gap-2'>
+						<MdPassword />
+						<input
+							type='password'
+							className='grow'
+							placeholder='Password'
+							name='password'
+							onChange={handleInputChange}
+							value={formData.password}
+						/>
+					</label>
+					<button className='btn rounded-full btn-primary text-white'>
+						{isPending ? "Loading..." : "Login"}
+					</button>
+					{isError && <p className='text-red-500'>{error.message}</p>}
+				</form>
+				<div className='flex flex-col gap-2 mt-4'>
+					<p className='text-white text-lg'>{"Don't"} have an account?</p>
+					<Link to='/signup'>
+						<button className='btn rounded-full btn-primary text-white btn-outline w-full'>Sign up</button>
+					</Link>
+				</div>
+			</div>
+		</div>
+	);
 };
-
-// Export the component so it can be used in other parts of the app
 export default LoginPage;

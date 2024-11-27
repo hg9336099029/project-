@@ -1,130 +1,162 @@
-import { Link } from "react-router-dom"; // Import the `Link` component for navigating between pages without reloading
-import { useState } from "react"; // Import React's `useState` hook to manage state within the component
+import { Link } from "react-router-dom"; // Importing the Link component for navigation between routes.
+import { useState } from "react"; // Importing useState to manage form data state.
 
-import XSvg from "../../../components/svgs/X"; // Import a custom SVG logo from a relative path
+import XSvg from "../../../components/svgs/X"; // Importing a custom SVG component.
 
-// Import specific icons from the `react-icons` library for use in the UI
-import { MdOutlineMail } from "react-icons/md"; // Icon for the email field
-import { FaUser } from "react-icons/fa"; // Icon for the username field
-import { MdPassword } from "react-icons/md"; // Icon for the password field
-import { MdDriveFileRenameOutline } from "react-icons/md"; // Icon for the full name field
+import { MdOutlineMail, MdPassword, MdDriveFileRenameOutline } from "react-icons/md"; // Importing icons for form fields.
+import { FaUser } from "react-icons/fa"; // Importing the user icon.
+import { useMutation, useQueryClient } from "@tanstack/react-query"; // Importing React Query hooks for mutation and query cache.
+import toast from "react-hot-toast"; // Importing toast notifications for user feedback.
 
 const SignUpPage = () => {
-  // State to hold form data (email, username, full name, and password)
+  // State to hold form input values
   const [formData, setFormData] = useState({
-    email: "", // Initial value for email is an empty string
-    username: "", // Initial value for username is an empty string
-    fullName: "", // Initial value for full name is an empty string
-    password: "", // Initial value for password is an empty string
+    email: "",
+    username: "",
+    fullName: "",
+    password: "",
   });
 
-  // Function to handle form submission
+  // React Query's query client for managing cached data
+  const queryClient = useQueryClient();
+
+  // Mutation to handle the sign-up process
+  const { mutate, isError, isLoading, error } = useMutation({
+    mutationFn: async ({ email, username, fullName, password }) => {
+      // API call to the server for user sign-up
+      const res = await fetch("/api/auth/signup", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email, username, fullName, password }),
+      });
+
+      // Parsing response
+      const data = await res.json();
+      if (!res.ok) {
+        // Throw an error if the request was unsuccessful
+        throw new Error(data.error || "Failed to create account");
+      }
+      return data; // Return the parsed response
+    },
+    onSuccess: () => {
+      // Actions to perform on successful sign-up
+      toast.success("Account created successfully"); // Display success message
+      queryClient.invalidateQueries({ queryKey: ["authUser"] }); // Invalidate queries to refresh cached data
+    },
+  });
+
+  // Handle form submission
   const handleSubmit = (e) => {
-    e.preventDefault(); // Prevents the page from reloading when the form is submitted
-    console.log(formData); // Logs the current form data in the browser's console
+    e.preventDefault(); // Prevent page reload on form submission
+
+    // Validate form fields before making an API call
+    if (
+      !formData.email ||
+      !formData.username ||
+      !formData.fullName ||
+      !formData.password
+    ) {
+      toast.error("Please fill in all fields"); // Display error if fields are empty
+      return;
+    }
+
+    mutate(formData); // Trigger the mutation with form data
   };
 
-  // Function to update the form data state when an input field value changes
+  // Handle input field changes and update form data state
   const handleInputChange = (e) => {
-    // Update the corresponding field in the state based on the input's `name` attribute
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  // Placeholder for error handling
-  const isError = false; // Set to `true` if there's an error to show an error message
-
   return (
     <div className="max-w-screen-xl mx-auto flex h-screen px-10">
-      {/* Container div for the signup page. 
-          Divided into a left section (for large screens) and a right section (for the form) */}
-      
-      {/* Left section */}
+      {/* Left section: Display an SVG graphic for larger screens */}
       <div className="flex-1 hidden lg:flex items-center justify-center">
-        {/* The custom SVG logo is only visible on large screens */}
         <XSvg className="lg:w-2/3 fill-white" />
       </div>
-
-      {/* Right section */}
+      {/* Right section: Sign-up form */}
       <div className="flex-1 flex flex-col justify-center items-center">
-        {/* Sign-up form */}
         <form
           className="lg:w-2/3 mx-auto md:mx-20 flex gap-4 flex-col"
-          onSubmit={handleSubmit}>
-          {/* Display the logo for smaller screens */}
+          onSubmit={handleSubmit} // Attach the form submission handler
+        >
+          {/* Logo for smaller screens */}
           <XSvg className="w-24 lg:hidden fill-white" />
-
-          {/* Page title */}
           <h1 className="text-4xl font-extrabold text-white">Join today.</h1>
-
-          {/* Email input */}
+          {/* Email input field */}
           <label className="input input-bordered rounded flex items-center gap-2">
-            <MdOutlineMail /> {/* Email icon */}
+            <MdOutlineMail />
             <input
               type="email"
-              className="grow" // Makes the input take up remaining space
-              placeholder="Email" // Placeholder text shown in the input field
-              name="email" // Used to identify the field in the `handleInputChange` function
-              onChange={handleInputChange} // Update state when the input value changes
-              value={formData.email} // Set the input value from state
+              className="grow"
+              placeholder="Email"
+              name="email"
+              aria-label="Email"
+              onChange={handleInputChange}
+              value={formData.email}
+              required
             />
           </label>
-
-          {/* Username and Full Name input fields */}
+          {/* Username and full name input fields */}
           <div className="flex gap-4 flex-wrap">
-            {/* Username input */}
             <label className="input input-bordered rounded flex items-center gap-2 flex-1">
-              <FaUser /> {/* Username icon */}
+              <FaUser />
               <input
                 type="text"
                 className="grow"
                 placeholder="Username"
                 name="username"
+                aria-label="Username"
                 onChange={handleInputChange}
                 value={formData.username}
+                required
               />
             </label>
-
-            {/* Full Name input */}
             <label className="input input-bordered rounded flex items-center gap-2 flex-1">
-              <MdDriveFileRenameOutline /> {/* Full name icon */}
+              <MdDriveFileRenameOutline />
               <input
                 type="text"
                 className="grow"
                 placeholder="Full Name"
                 name="fullName"
+                aria-label="Full Name"
                 onChange={handleInputChange}
                 value={formData.fullName}
+                required
               />
             </label>
           </div>
-
-          {/* Password input */}
+          {/* Password input field */}
           <label className="input input-bordered rounded flex items-center gap-2">
-            <MdPassword /> {/* Password icon */}
+            <MdPassword />
             <input
               type="password"
               className="grow"
               placeholder="Password"
               name="password"
+              aria-label="Password"
               onChange={handleInputChange}
               value={formData.password}
+              required
             />
           </label>
-
           {/* Submit button */}
-          <button className="btn rounded-full btn-primary text-white">
-            Sign up
+          <button
+            type="submit"
+            className="btn rounded-full btn-primary text-white"
+            disabled={isLoading} // Disable button when loading
+          >
+            {isLoading ? "Loading..." : "Sign up"}
           </button>
-
-          {/* Conditional error message */}
-          {isError && <p className="text-red-500">Something went wrong</p>}
+          {/* Display error message if sign-up fails */}
+          {isError && <p className="text-red-500">{error?.message}</p>}
         </form>
-
-        {/* Navigation to the login page */}
+        {/* Navigation to login page */}
         <div className="flex flex-col lg:w-2/3 gap-2 mt-4">
           <p className="text-white text-lg">Already have an account?</p>
           <Link to="/login">
-            {/* Button to navigate to the login page */}
             <button className="btn rounded-full btn-primary text-white btn-outline w-full">
               Sign in
             </button>
@@ -135,4 +167,4 @@ const SignUpPage = () => {
   );
 };
 
-export default SignUpPage; // Export the component so it can be used in other parts of the app
+export default SignUpPage;
