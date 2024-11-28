@@ -1,5 +1,4 @@
-import { populate } from 'dotenv';
-import Notification from '../models/notification.model.js';
+import Notification from "../models/notification.model.js";
 import Post from "../models/post.model.js";
 import User from "../models/user.model.js";
 import { v2 as cloudinary } from "cloudinary";
@@ -38,29 +37,25 @@ export const createPost = async (req, res) => {
 
 export const deletePost = async (req, res) => {
 	try {
-		// Fetch the post by its ID
-		const post = await Post.findById(req.params.id); // Capitalized `Post` to match the model name
+		const post = await Post.findById(req.params.id);
 		if (!post) {
-			return res.status(404).json({ message: "Post not found" });
+			return res.status(404).json({ error: "Post not found" });
 		}
 
-		// Check if the current user is authorized to delete the post
 		if (post.user.toString() !== req.user._id.toString()) {
-			return res.status(401).json({ message: "You are not authorized to delete this post" });
+			return res.status(401).json({ error: "You are not authorized to delete this post" });
 		}
 
-		// If the post has an image, delete it from Cloudinary
 		if (post.img) {
 			const imgId = post.img.split("/").pop().split(".")[0];
 			await cloudinary.uploader.destroy(imgId);
 		}
 
-		// Delete the post from the database
 		await Post.findByIdAndDelete(req.params.id);
 
 		res.status(200).json({ message: "Post deleted successfully" });
 	} catch (error) {
-		console.error("Error in deletePost controller:", error);
+		console.log("Error in deletePost controller: ", error);
 		res.status(500).json({ error: "Internal server error" });
 	}
 };
@@ -108,12 +103,14 @@ export const likeUnlikePost = async (req, res) => {
 		if (userLikedPost) {
 			// Unlike post
 			await Post.updateOne({ _id: postId }, { $pull: { likes: userId } });
-			await User.updateOne({_id: userId},{$pull:{likedPosts: postId}});
-			res.status(200).json({mesage: "Post unlike successfully"});
+			await User.updateOne({ _id: userId }, { $pull: { likedPosts: postId } });
+
+			const updatedLikes = post.likes.filter((id) => id.toString() !== userId.toString());
+			res.status(200).json(updatedLikes);
 		} else {
 			// Like post
 			post.likes.push(userId);
-			await User.updateOne({_id: userId},{$push:{likedPosts: postId}})
+			await User.updateOne({ _id: userId }, { $push: { likedPosts: postId } });
 			await post.save();
 
 			const notification = new Notification({
@@ -122,7 +119,9 @@ export const likeUnlikePost = async (req, res) => {
 				type: "like",
 			});
 			await notification.save();
-			res.status(200).json({message: "Post like successfully"});
+
+			const updatedLikes = post.likes;
+			res.status(200).json(updatedLikes);
 		}
 	} catch (error) {
 		console.log("Error in likeUnlikePost controller: ", error);
@@ -132,30 +131,29 @@ export const likeUnlikePost = async (req, res) => {
 
 export const getAllPosts = async (req, res) => {
 	try {
-	  // Fetch all posts, sorted by creation date in descending order
-	  const posts = await Post.find().sort({ createdAt: -1 }).populate({
-	  path: "user",
-	  select:"-password",
-	 })
-	 .populate({
-		path: "comments.user",
-		select: "-password",
-	 });
-  
-	  // Return an empty array if no posts are found
-	  if (posts.length === 0) {
-		return res.status(200).json([]);
-	  }
-  
-	  // Return the posts
-	  return res.status(200).json(posts);
+		const posts = await Post.find()
+			.sort({ createdAt: -1 })
+			.populate({
+				path: "user",
+				select: "-password",
+			})
+			.populate({
+				path: "comments.user",
+				select: "-password",
+			});
+
+		if (posts.length === 0) {
+			return res.status(200).json([]);
+		}
+
+		res.status(200).json(posts);
 	} catch (error) {
-	  console.error("Error in getAllPosts controller:", error.message);
-	  return res.status(500).json({ error: "An error occurred while fetching posts" });
+		console.log("Error in getAllPosts controller: ", error);
+		res.status(500).json({ error: "Internal server error" });
 	}
-  };
-  
-  export const getLikedPosts = async (req, res) => {
+};
+
+export const getLikedPosts = async (req, res) => {
 	const userId = req.params.id;
 
 	try {
@@ -178,7 +176,6 @@ export const getAllPosts = async (req, res) => {
 		res.status(500).json({ error: "Internal server error" });
 	}
 };
-
 
 export const getFollowingPosts = async (req, res) => {
 	try {
