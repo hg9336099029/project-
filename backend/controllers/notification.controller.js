@@ -1,32 +1,57 @@
 import Notification from "../models/notification.model.js";
 
+/**
+ * Get Notifications for the Logged-In User
+ */
 export const getNotifications = async (req, res) => {
-	try {
-		const userId = req.user._id;
+  try {
+    // Validate user information
+    if (!req.user || !req.user._id) {
+      return res.status(400).json({ error: "User ID is missing or invalid" });
+    }
 
-		const notifications = await Notification.find({ to: userId }).populate({
-			path: "from",
-			select: "username profileImg",
-		});
+    const userId = req.user._id;
 
-		await Notification.updateMany({ to: userId }, { read: true });
+    // Fetch notifications for the user
+    const notifications = await Notification.find({ to: userId }).populate({
+      path: "from",
+      select: "username profileImg",
+    });
 
-		res.status(200).json(notifications);
-	} catch (error) {
-		console.log("Error in getNotifications function", error.message);
-		res.status(500).json({ error: "Internal Server Error" });
-	}
+    // Mark notifications as read
+    await Notification.updateMany({ to: userId, read: false }, { read: true });
+
+    res.status(200).json({
+      success: true,
+      notifications,
+    });
+  } catch (error) {
+    console.error("Error in getNotifications:", error.message);
+    res.status(500).json({ error: "Failed to fetch notifications" });
+  }
 };
 
+/**
+ * Delete All Notifications for the Logged-In User
+ */
 export const deleteNotifications = async (req, res) => {
-	try {
-		const userId = req.user._id;
+  try {
+    // Validate user information
+    if (!req.user || !req.user._id) {
+      return res.status(400).json({ error: "User ID is missing or invalid" });
+    }
 
-		await Notification.deleteMany({ to: userId });
+    const userId = req.user._id;
 
-		res.status(200).json({ message: "Notifications deleted successfully" });
-	} catch (error) {
-		console.log("Error in deleteNotifications function", error.message);
-		res.status(500).json({ error: "Internal Server Error" });
-	}
+    // Delete all notifications for the user
+    await Notification.deleteMany({ to: userId });
+
+    res.status(200).json({
+      success: true,
+      message: "Notifications deleted successfully",
+    });
+  } catch (error) {
+    console.error("Error in deleteNotifications:", error.message);
+    res.status(500).json({ error: "Failed to delete notifications" });
+  }
 };

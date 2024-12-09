@@ -2,20 +2,21 @@ import { FaRegComment, FaRegHeart, FaRegBookmark, FaTrash } from "react-icons/fa
 import { BiRepost } from "react-icons/bi";
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "react-hot-toast";
 
 import LoadingSpinner from "./LoadingSpinner";
 import { formatPostDate } from "../../utils/date";
 
-const Post = ({ post }) => {
+const Post = ({ post, authUser }) => {
   const [comment, setComment] = useState("");
-  const { data: authUser } = useQuery({ queryKey: ["authUser"] });
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const queryClient = useQueryClient();
 
   const postOwner = post.user;
-  const isLiked = post.likes.includes(authUser._id);
-  const isMyPost = authUser._id === post.user._id;
+  const isLiked = authUser && post.likes.includes(authUser._id);
+  const isMyPost = authUser && authUser._id === post.user._id;
+
   const formattedDate = formatPostDate(post.createdAt);
 
   // Delete Post Mutation
@@ -141,59 +142,13 @@ const Post = ({ post }) => {
             {/* Comment */}
             <div
               className="flex gap-1 items-center cursor-pointer group"
-              onClick={() =>
-                document.getElementById(`comments_modal${post._id}`).showModal()
-              }
+              onClick={() => setIsModalOpen(true)}
             >
               <FaRegComment className="w-4 h-4 text-slate-500 group-hover:text-sky-400" />
               <span className="text-sm text-slate-500 group-hover:text-sky-400">
                 {post.comments.length}
               </span>
             </div>
-
-            {/* Comments Modal */}
-            <dialog id={`comments_modal${post._id}`} className="modal">
-              <div className="modal-box rounded border border-gray-600">
-                <h3 className="font-bold text-lg mb-4">COMMENTS</h3>
-                <div className="flex flex-col gap-3 max-h-60 overflow-auto">
-                  {post.comments.length === 0 ? (
-                    <p className="text-sm text-slate-500">No comments yet 🤔</p>
-                  ) : (
-                    post.comments.map((comment) => (
-                      <div key={comment._id} className="flex gap-2 items-start">
-                        <div className="avatar">
-                          <div className="w-8 rounded-full">
-                            <img
-                              src={comment.user.profileImg || "/avatar-placeholder.png"}
-                              alt={`${comment.user.username}'s profile`}
-                            />
-                          </div>
-                        </div>
-                        <div className="flex flex-col">
-                          <span className="font-bold">{comment.user.fullName}</span>
-                          <span className="text-gray-700 text-sm">@{comment.user.username}</span>
-                          <p className="text-sm">{comment.text}</p>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-                <form className="flex gap-2 items-center mt-4" onSubmit={handlePostComment}>
-                  <textarea
-                    className="textarea w-full p-1 rounded resize-none border border-gray-800"
-                    placeholder="Add a comment..."
-                    value={comment}
-                    onChange={(e) => setComment(e.target.value)}
-                  />
-                  <button className="btn btn-primary rounded-full btn-sm text-white px-4">
-                    {isCommenting ? <LoadingSpinner size="sm" /> : "Post"}
-                  </button>
-                </form>
-              </div>
-              <form method="dialog" className="modal-backdrop">
-                <button className="outline-none">Close</button>
-              </form>
-            </dialog>
 
             {/* Repost */}
             <div className="flex gap-1 items-center group cursor-pointer">
