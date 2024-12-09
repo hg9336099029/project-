@@ -2,41 +2,28 @@ import User from "../models/user.model.js";
 import jwt from "jsonwebtoken";
 
 export const protectRoute = async (req, res, next) => {
-  try {
-    // Extract token from cookies or Authorization header
-    const token = req.cookies.jwt || req.headers.authorization?.split(" ")[1];
+	try {
+		const token = req.cookies.jwt;
+		if (!token) {
+			return res.status(401).json({ error: "Unauthorized: No Token Provided" });
+		}
 
-    if (!token) {
-      return res.status(401).json({ error: "Unauthorized: No Token Provided" });
-    }
+		const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    // Verify JWT Token
-    let decoded;
-    try {
-      decoded = jwt.verify(token, process.env.JWT_SECRET);
-    } catch (jwtError) {
-      console.error("JWT verification failed:", jwtError.message);
-      return res.status(401).json({ error: "Unauthorized: Invalid or Expired Token" });
-    }
+		if (!decoded) {
+			return res.status(401).json({ error: "Unauthorized: Invalid Token" });
+		}
 
-    // Fetch user from the database
-    const user = await User.findById(decoded.userId).select("-password");
-    if (!user) {
-      return res.status(404).json({ error: "User not found" });
-    }
+		const user = await User.findById(decoded.userId).select("-password");
 
-    // Attach user to the request object
-    req.user = user;
+		if (!user) {
+			return res.status(404).json({ error: "User not found" });
+		}
 
-    next();
-  } catch (err) {
-    console.error("Error in protectRoute middleware:", err.message);
-
-    // Handle specific errors (e.g., ECONNRESET)
-    if (err.code === "ECONNRESET") {
-      return res.status(503).json({ error: "Service Unavailable. Please try again later." });
-    }
-
-    return res.status(500).json({ error: "Internal Server Error" });
-  }
+		req.user = user;
+		next();
+	} catch (err) {
+		console.log("Error in protectRoute middleware", err.message);
+		return res.status(500).json({ error: "Internal Server Error" });
+	}
 };
